@@ -7,10 +7,12 @@ module ::ArJdbc
           def after_save_with_firebird_blob
             self.class.columns.select { |c| c.sql_type =~ /blob/i }.each do |c|
               value = self[c.name]
-              if respond_to?(:unserializable_attribute?)
-                value = value.to_yaml if unserializable_attribute?(c.name, c)
-              else
-                value = value.to_yaml if value.is_a?(Hash)
+              if coder = self.class.serialized_attributes[c.name]
+                if coder.respond_to?(:dump)
+                  value = coder.dump(value)
+                else
+                  value = value.to_yaml
+                end
               end
               next if value.nil?
               connection.write_large_object(c.type == :binary, c.name, self.class.table_name, self.class.primary_key, quote_value(id), value)
@@ -121,6 +123,11 @@ module ::ArJdbc
 
     def quoted_false # :nodoc:
       quote(0)
+    end
+
+    def explain(*args)
+      # not yet supported
+      ""
     end
 
     private
